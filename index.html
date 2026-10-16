@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TVmaze Show Gallery</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>TVmaze Show Gallery</h1>
+    <p class="tagline">Search for TV shows by title or keyword.</p>
+
+    <form id="search-form" class="search-form" role="search">
+      <label for="search-input" class="visually-hidden">Show title or keyword</label>
+      <input
+        type="search"
+        id="search-input"
+        name="q"
+        placeholder="e.g. Breaking Bad"
+        autocomplete="off"
+      >
+      <button type="submit" id="search-button">Search</button>
+    </form>
+  </header>
+
+  <main>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <section id="gallery" class="gallery" aria-label="Search results"></section>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      Show data provided by
+      <a href="https://www.tvmaze.com/" target="_blank" rel="noopener">TVmaze</a>,
+      licensed under
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
+    </p>
+  </footer>
+
+</body>
+</html>
