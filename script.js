@@ -1,20 +1,14 @@
 const API_BASE = "https://api.tvmaze.com";
 const DEFAULT_QUERY = "star trek";
 const MAX_RESULTS = 10;
+const MAX_CAST = 5;
+
+const castCache = new Map();
 
 const searchForm = document.getElementById("search-form");
 const searchInput = document.getElementById("search-input");
-const searchButton = document.getElementById("search-button");
 const statusMessage = document.getElementById("status");
 const gallery = document.getElementById("gallery");
-
-class RequestError extends Error {
-  constructor(message, status) {
-    super(message);
-    this.name = "RequestError";
-    this.status = status;
-  }
-}
 
 async function fetchJson(url) {
   let response;
@@ -22,23 +16,22 @@ async function fetchJson(url) {
   try {
     response = await fetch(url);
   } catch (error) {
-    throw new RequestError("Could not reach TVmaze. Check your internet connection and try again.", 0);
+    throw new Error("Could not reach TVmaze. Check your internet connection and try again.");
   }
 
   if (response.status === 429) {
-    throw new RequestError("TVmaze is receiving too many requests right now. Please wait a few seconds and try again.", 429);
+    throw new Error("TVmaze is receiving too many requests right now. Please wait a few seconds and try again.");
   }
 
   if (!response.ok) {
-    throw new RequestError(`TVmaze returned an error (HTTP ${response.status}). Please try again later.`, response.status);
+    throw new Error(`TVmaze returned an error (HTTP ${response.status}). Please try again later.`);
   }
 
   return response.json();
 }
 
-function setStatus(message, isError = false) {
+function setStatus(message) {
   statusMessage.textContent = message;
-  statusMessage.classList.toggle("error", isError);
 }
 
 const NOT_AVAILABLE = "Not available";
@@ -101,7 +94,6 @@ function createPoster(show, showName) {
   poster.className = "card-poster";
   poster.src = imageUrl;
   poster.alt = `Poster for ${showName}`;
-  poster.loading = "lazy";
   return poster;
 }
 
@@ -114,6 +106,41 @@ function addDetail(list, label, value) {
 
   list.append(term, description);
   return description;
+}
+
+async function getCast(showId) {
+  if (castCache.has(showId)) {
+    return castCache.get(showId);
+  }
+
+  const cast = await fetchJson(`${API_BASE}/shows/${showId}/cast`);
+  castCache.set(showId, cast);
+  return cast;
+}
+
+async function loadCast(showId, castElement) {
+  try {
+    const cast = await getCast(showId);
+    const members = cast.slice(0, MAX_CAST).filter((entry) => entry.person?.name);
+
+    if (members.length === 0) {
+      castElement.textContent = NOT_AVAILABLE;
+      return;
+    }
+
+    const list = document.createElement("ul");
+    list.className = "cast-list";
+
+    for (const member of members) {
+      const item = document.createElement("li");
+      item.textContent = member.person.name;
+      list.append(item);
+    }
+
+    castElement.replaceChildren(list);
+  } catch (error) {
+    castElement.textContent = error.message;
+  }
 }
 
 function createCard(show) {
@@ -143,6 +170,8 @@ function createCard(show) {
   addDetail(details, "Last updated", formatUpdated(show.updated));
   addDetail(details, "Genres", genres);
   addDetail(details, "Average rating", rating);
+  const castValue = addDetail(details, "Main cast", "Loading cast...");
+  loadCast(show.id, castValue);
 
   const link = document.createElement("a");
   link.className = "card-link";
@@ -165,13 +194,12 @@ async function searchShows(query) {
 
   if (trimmedQuery === "") {
     gallery.replaceChildren();
-    setStatus("Please enter a show title or keyword.", true);
+    setStatus("Please enter a show title or keyword.");
     return;
   }
 
   gallery.replaceChildren();
   setStatus(`Searching for "${trimmedQuery}"...`);
-  searchButton.disabled = true;
 
   try {
     const url = `${API_BASE}/search/shows?q=${encodeURIComponent(trimmedQuery)}`;
@@ -183,17 +211,10 @@ async function searchShows(query) {
       return;
     }
 
-    const label = shows.length === 1 ? "result" : "results";
-    setStatus(`Showing ${shows.length} ${label} for "${trimmedQuery}".`);
+    setStatus("");
     renderGallery(shows);
   } catch (error) {
-    if (error instanceof RequestError) {
-      setStatus(error.message, true);
-    } else {
-      setStatus("Something went wrong while loading shows. Please try again.", true);
-    }
-  } finally {
-    searchButton.disabled = false;
+    setStatus(error.message);
   }
 }
 
@@ -202,5 +223,4 @@ searchForm.addEventListener("submit", (event) => {
   searchShows(searchInput.value);
 });
 
-searchInput.value = DEFAULT_QUERY;
 searchShows(DEFAULT_QUERY);
