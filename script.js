@@ -41,20 +41,123 @@ function setStatus(message, isError = false) {
   statusMessage.classList.toggle("error", isError);
 }
 
-function renderGallery(shows) {
-  gallery.replaceChildren();
+const NOT_AVAILABLE = "Not available";
+const SUMMARY_LENGTH = 200;
 
-  for (const show of shows) {
-    const card = document.createElement("article");
-    card.className = "card";
-
-    const title = document.createElement("h2");
-    title.className = "card-title";
-    title.textContent = show.name;
-
-    card.append(title);
-    gallery.append(card);
+function stripHtml(html) {
+  if (!html) {
+    return "";
   }
+
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent.trim();
+}
+
+function shortenText(text, maxLength) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return text.slice(0, maxLength).trimEnd() + "...";
+}
+
+function formatPremiered(dateString) {
+  if (!dateString) {
+    return NOT_AVAILABLE;
+  }
+
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  if (Number.isNaN(date.getTime())) {
+    return NOT_AVAILABLE;
+  }
+
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+}
+
+function formatUpdated(timestamp) {
+  if (!timestamp) {
+    return NOT_AVAILABLE;
+  }
+
+  return new Date(timestamp * 1000).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function createPoster(show, showName) {
+  const imageUrl = show.image?.medium || show.image?.original;
+
+  if (!imageUrl) {
+    const placeholder = document.createElement("div");
+    placeholder.className = "card-poster placeholder";
+    placeholder.textContent = "No poster available";
+    return placeholder;
+  }
+
+  const poster = document.createElement("img");
+  poster.className = "card-poster";
+  poster.src = imageUrl;
+  poster.alt = `Poster for ${showName}`;
+  poster.loading = "lazy";
+  return poster;
+}
+
+function addDetail(list, label, value) {
+  const term = document.createElement("dt");
+  term.textContent = label;
+
+  const description = document.createElement("dd");
+  description.textContent = value;
+
+  list.append(term, description);
+  return description;
+}
+
+function createCard(show) {
+  const showName = show.name || "Untitled show";
+
+  const card = document.createElement("article");
+  card.className = "card";
+
+  const body = document.createElement("div");
+  body.className = "card-body";
+
+  const title = document.createElement("h2");
+  title.className = "card-title";
+  title.textContent = showName;
+
+  const summaryText = stripHtml(show.summary);
+  const summary = document.createElement("p");
+  summary.className = "card-summary";
+  summary.textContent = summaryText ? shortenText(summaryText, SUMMARY_LENGTH) : `Summary: ${NOT_AVAILABLE}`;
+
+  const genres = show.genres?.length ? show.genres.join(", ") : NOT_AVAILABLE;
+  const rating = show.rating?.average != null ? `${show.rating.average} / 10` : NOT_AVAILABLE;
+
+  const details = document.createElement("dl");
+  details.className = "card-details";
+  addDetail(details, "Premiered", formatPremiered(show.premiered));
+  addDetail(details, "Last updated", formatUpdated(show.updated));
+  addDetail(details, "Genres", genres);
+  addDetail(details, "Average rating", rating);
+
+  const link = document.createElement("a");
+  link.className = "card-link";
+  link.href = show.url || `https://www.tvmaze.com/shows/${show.id}`;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = "View on TVmaze";
+
+  body.append(title, summary, details, link);
+  card.append(createPoster(show, showName), body);
+  return card;
+}
+
+function renderGallery(shows) {
+  gallery.replaceChildren(...shows.map(createCard));
 }
 
 async function searchShows(query) {
